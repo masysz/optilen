@@ -1,0 +1,412 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <meta name="viewport"
+        content="width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=1, viewport-fit=cover" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#000000">
+    <title>Staking App</title>
+    <meta name="description" content="Staking Contract Interaction UI">
+    <meta name="keywords" content="staking, web3, ethereum, blockchain, crypto" />
+    <link rel="icon" type="image/png" href="assets/img/favicon.png" sizes="32x32">
+    <link rel="apple-touch-icon" sizes="180x180" href="assets/img/icon/192x192.png">
+    <link rel="stylesheet" href="assets/css/style.css">
+    <link rel="manifest" href="__manifest.json">
+    <script src="https://cdn.jsdelivr.net/npm/web3@latest/dist/web3.min.js"></script>
+</head>
+
+<body class="bg-dark">
+
+    <!-- loader -->
+    <div id="loader">
+        <img src="load.png" alt="icon" class="loading-icon">
+    </div>
+    <!-- * loader -->
+
+    <!-- App Capsule -->
+    <div id="appCapsule">
+
+        <div class="section">
+            <div class="splash-page mt-5 mb-5">
+                <div class="mb-0">
+                    <img src="logo.png" alt="logo" class="imaged square" style="width: 20rem;">
+                </div>
+                <button id="connectButton" class="btn btn-opti">Connect Wallet</button>
+
+                <!-- Section for Staking -->
+                <div id="stakeSection" style="display: none;" class="mt-1">
+                    <h3 class="mb-2 text-white">Stake ETH</h3>
+                    <div class="d-flex">
+                        <input type="number" id="stakeAmount" placeholder="Amount in ETH" class="form-control mb-2">
+                        <button id="stakeButton" class="btn btn-opti">Stake</button>
+                    </div>
+                </div>
+
+                <!-- Section for Contract Data -->
+                <div id="contractData" style="display: none;" class="mt-4">
+                    <div class="d-flex justify-content-between mb-4">
+                        <div id="totalStaked" class="text-white"></div>
+                        <button class="btn btn-secondary btn-sm" data-bs-toggle="tooltip" data-bs-placement="top" title="">Withdraw</button>
+                    </div>
+                    <div class="border border-1 rounded p-2">
+                        <h2 class="mb-0 text-white">Your OLAI</h2>
+                        <hr>
+                        <div class="d-flex justify-content-between mt-2">
+                            <div class="text-muted">Season 1</div>
+                            <div id="availableReward" class="text-muted"></div>
+                        </div>
+                        <hr>
+                        <div class="d-flex justify-content-between mb-2">
+                            <div class="text-white"><strong>TOTAL</strong></div>
+                            <div id="availableRewardTotal" class="text-white"></div>
+                        </div>
+                        <button class="btn btn-secondary btn-sm" data-bs-toggle="tooltip" data-bs-placement="top" title="" style="width: 100%;">Claim All</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+    <!-- * App Capsule -->
+
+    <!-- ========= JS Files =========  -->
+    <script src="assets/js/lib/bootstrap.bundle.min.js"></script>
+    <script type="module" src="https://unpkg.com/ionicons@5.5.2/dist/ionicons/ionicons.js"></script>
+    <script src="assets/js/plugins/splide/splide.min.js"></script>
+    <script src="assets/js/base.js"></script>
+
+    <script>
+        // Web3 & ABI Configuration
+        const contractAddress = "0xdf1cb27014a6bfd0cdde29b90d1533b4ee0a4ef6";
+        const ABI = [{
+                "inputs": [],
+                "name": "claimReward",
+                "outputs": [],
+                "stateMutability": "nonpayable",
+                "type": "function"
+            },
+            {
+                "inputs": [{
+                    "internalType": "uint256",
+                    "name": "amount",
+                    "type": "uint256"
+                }],
+                "name": "emergencyWithdrawETH",
+                "outputs": [],
+                "stateMutability": "nonpayable",
+                "type": "function"
+            },
+            {
+                "inputs": [{
+                    "internalType": "uint256",
+                    "name": "amount",
+                    "type": "uint256"
+                }],
+                "name": "emergencyWithdrawTokens",
+                "outputs": [],
+                "stateMutability": "nonpayable",
+                "type": "function"
+            },
+            {
+                "inputs": [],
+                "name": "stake",
+                "outputs": [],
+                "stateMutability": "payable",
+                "type": "function"
+            },
+            {
+                "inputs": [{
+                    "internalType": "address",
+                    "name": "_rewardToken",
+                    "type": "address"
+                }],
+                "stateMutability": "nonpayable",
+                "type": "constructor"
+            },
+            {
+                "anonymous": false,
+                "inputs": [{
+                        "indexed": true,
+                        "internalType": "address",
+                        "name": "user",
+                        "type": "address"
+                    },
+                    {
+                        "indexed": false,
+                        "internalType": "uint256",
+                        "name": "reward",
+                        "type": "uint256"
+                    }
+                ],
+                "name": "RewardClaimed",
+                "type": "event"
+            },
+            {
+                "anonymous": false,
+                "inputs": [{
+                        "indexed": true,
+                        "internalType": "address",
+                        "name": "user",
+                        "type": "address"
+                    },
+                    {
+                        "indexed": false,
+                        "internalType": "uint256",
+                        "name": "amount",
+                        "type": "uint256"
+                    }
+                ],
+                "name": "Staked",
+                "type": "event"
+            },
+            {
+                "inputs": [],
+                "name": "withdraw",
+                "outputs": [],
+                "stateMutability": "nonpayable",
+                "type": "function"
+            },
+            {
+                "anonymous": false,
+                "inputs": [{
+                        "indexed": true,
+                        "internalType": "address",
+                        "name": "user",
+                        "type": "address"
+                    },
+                    {
+                        "indexed": false,
+                        "internalType": "uint256",
+                        "name": "amount",
+                        "type": "uint256"
+                    }
+                ],
+                "name": "Withdrawn",
+                "type": "event"
+            },
+            {
+                "inputs": [{
+                    "internalType": "address",
+                    "name": "user",
+                    "type": "address"
+                }],
+                "name": "calculateReward",
+                "outputs": [{
+                    "internalType": "uint256",
+                    "name": "",
+                    "type": "uint256"
+                }],
+                "stateMutability": "view",
+                "type": "function"
+            },
+            {
+                "inputs": [],
+                "name": "dailyReward",
+                "outputs": [{
+                    "internalType": "uint256",
+                    "name": "",
+                    "type": "uint256"
+                }],
+                "stateMutability": "view",
+                "type": "function"
+            },
+            {
+                "inputs": [],
+                "name": "duration",
+                "outputs": [{
+                    "internalType": "uint256",
+                    "name": "",
+                    "type": "uint256"
+                }],
+                "stateMutability": "view",
+                "type": "function"
+            },
+            {
+                "inputs": [],
+                "name": "owner",
+                "outputs": [{
+                    "internalType": "address",
+                    "name": "",
+                    "type": "address"
+                }],
+                "stateMutability": "view",
+                "type": "function"
+            },
+            {
+                "inputs": [],
+                "name": "remainingRewardPool",
+                "outputs": [{
+                    "internalType": "uint256",
+                    "name": "",
+                    "type": "uint256"
+                }],
+                "stateMutability": "view",
+                "type": "function"
+            },
+            {
+                "inputs": [],
+                "name": "rewardToken",
+                "outputs": [{
+                    "internalType": "address",
+                    "name": "",
+                    "type": "address"
+                }],
+                "stateMutability": "view",
+                "type": "function"
+            },
+            {
+                "inputs": [{
+                    "internalType": "address",
+                    "name": "",
+                    "type": "address"
+                }],
+                "name": "stakes",
+                "outputs": [{
+                        "internalType": "uint256",
+                        "name": "amount",
+                        "type": "uint256"
+                    },
+                    {
+                        "internalType": "uint256",
+                        "name": "lastClaimTime",
+                        "type": "uint256"
+                    }
+                ],
+                "stateMutability": "view",
+                "type": "function"
+            },
+            {
+                "inputs": [],
+                "name": "startTime",
+                "outputs": [{
+                    "internalType": "uint256",
+                    "name": "",
+                    "type": "uint256"
+                }],
+                "stateMutability": "view",
+                "type": "function"
+            },
+            {
+                "inputs": [],
+                "name": "timeLeft",
+                "outputs": [{
+                    "internalType": "uint256",
+                    "name": "",
+                    "type": "uint256"
+                }],
+                "stateMutability": "view",
+                "type": "function"
+            },
+            {
+                "inputs": [],
+                "name": "totalDistributed",
+                "outputs": [{
+                    "internalType": "uint256",
+                    "name": "",
+                    "type": "uint256"
+                }],
+                "stateMutability": "view",
+                "type": "function"
+            },
+            {
+                "inputs": [],
+                "name": "totalRewardPool",
+                "outputs": [{
+                    "internalType": "uint256",
+                    "name": "",
+                    "type": "uint256"
+                }],
+                "stateMutability": "view",
+                "type": "function"
+            },
+            {
+                "inputs": [],
+                "name": "totalStaked",
+                "outputs": [{
+                    "internalType": "uint256",
+                    "name": "",
+                    "type": "uint256"
+                }],
+                "stateMutability": "view",
+                "type": "function"
+            }
+        ];
+        let web3, contract;
+
+        document.getElementById('connectButton').addEventListener('click', async () => {
+            if (typeof window.ethereum !== 'undefined') {
+                try {
+                    await window.ethereum.request({
+                        method: 'eth_requestAccounts'
+                    });
+                    web3 = new Web3(window.ethereum);
+                    const accounts = await web3.eth.getAccounts();
+                    contract = new web3.eth.Contract(ABI, contractAddress);
+
+                    // Update UI status
+                    document.getElementById('connectButton').style.display = 'none';
+                    document.getElementById('stakeSection').style.display = 'block';
+                    document.getElementById('contractData').style.display = 'block';
+
+                    // Update contract data
+                    await updateContractData(accounts[0]);
+
+                    clearInterval(updateInterval);
+                    updateInterval = setInterval(() => updateContractData(accounts[0]), 3000);
+                } catch (error) {
+                    document.getElementById('connectionStatus').innerText = `Error: ${error.message}`;
+                }
+            } else {
+                document.getElementById('connectionStatus').innerText =
+                    'Please install MetaMask or another Web3 wallet!';
+            }
+        });
+
+        async function updateContractData(account) {
+            if (contract) {
+                try {
+                    const userStake = await contract.methods.stakes(account).call();
+                    const formattedStake = formatNumber(web3.utils.fromWei(userStake.amount, "ether"));
+                    document.getElementById('totalStaked').innerText =
+                        `Your Stake: ${formattedStake} ETH`;
+
+                    const reward = await contract.methods.calculateReward(account).call();
+                    const formattedReward = formatNumber(web3.utils.fromWei(reward, "ether"));
+                    document.getElementById('availableReward').innerText =
+                        `${formattedReward} OLAI`;
+                    document.getElementById('availableRewardTotal').innerText =
+                        `${formattedReward} OLAI`;
+                } catch (error) {
+                    console.error("Failed to update data:", error);
+                }
+            }
+        }
+
+        function formatNumber(number, decimals = 2) {
+            return parseFloat(number)
+                .toFixed(decimals) // Atur jumlah desimal
+                .replace(/\d(?=(\d{3})+\.)/g, '$&,'); // Tambahkan koma sebagai pemisah ribuan
+        }
+
+        document.getElementById('stakeButton').addEventListener('click', async () => {
+            try {
+                const accounts = await web3.eth.getAccounts();
+                const amount = document.getElementById('stakeAmount').value;
+                const weiAmount = web3.utils.toWei(amount, 'ether');
+                await contract.methods.stake().send({
+                    from: accounts[0],
+                    value: weiAmount
+                });
+                await updateContractData(accounts[0]);
+                alert('Staking successful!');
+            } catch (error) {
+                alert('Staking failed: ' + error.message);
+            }
+        });
+    </script>
+</body>
+
+</html>
